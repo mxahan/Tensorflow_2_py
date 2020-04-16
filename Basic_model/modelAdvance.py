@@ -63,7 +63,6 @@ class NeuralNet(Model):
             x = tf.nn.softmax(x)
         return x
 
-# Build neural network model.
 #%% Conv Net
 class ConvNet(Model):
     # Set layers.
@@ -116,10 +115,10 @@ def cross_entropy_loss(x, y):
     
     return tf.reduce_mean(loss)
 
-
-def accuracy(y_pred, y_true):    
-    cor_pred = tf.equal(tf.argmax(y_pred, 1), tf.cast(y_true, tf.int64))    
-    return tf.reduce_mean(tf.cast(cor_pred, tf.float32), axis = -1)
+class accr():
+    def accuracy(y_pred, y_true):    
+        cor_pred = tf.equal(tf.argmax(y_pred, 1), tf.cast(y_true, tf.int64))    
+        return tf.reduce_mean(tf.cast(cor_pred, tf.float32), axis = -1)
 
 
 
@@ -144,12 +143,13 @@ def train_nn(neural_net, train_data):
         
     for step, (batch_x, batch_y) in enumerate(train_data.take(training_steps), 1):     
         run_optimization(neural_net, batch_x, batch_y)
-        
+
         if step % display_step == 0:
             pred = neural_net(batch_x, is_training=True)
             loss = cross_entropy_loss(pred, batch_y)
-            acc = accuracy(pred, batch_y)
+            acc = accr.accuracy(pred, batch_y)
             print("step: %i, loss: %f, accuracy: %f" % (step, loss, acc))
+            print(batch_x.shape)
 
 
 def nn_train():
@@ -186,7 +186,7 @@ def conv_net_tr():
 #    main()
     
 #%%
-tr_net =  nn_train()
+#tr_net =  nn_train()
 
 #%% 
 with tf.device('/gpu:0'):
