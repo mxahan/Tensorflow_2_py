@@ -66,9 +66,8 @@ class MyModel(tf.keras.Model):
     def __init__(self, num_class = 10):
         super(MyModel, self).__init__()
         
-        inputs =  tf.keras.Input(shape= (28,28))
         self.x0 = tf.keras.layers.Flatten()
-        self.x1 = tf.keras.layers.Dense(512, activation='relu', name = 'd1')
+        self.x1 = tf.keras.layers.Dense(28*28, activation='relu', name = 'd1')
         self.x2 = tf.keras.layers.Dropout(0.2)
         self.preds = tf.keras.layers.Dense(10, activation =  tf.nn.softmax, name = 'd2')
     
@@ -76,6 +75,7 @@ class MyModel(tf.keras.Model):
         
         x = self.x0(inputs)
         x = self.x1(x)
+        x = self.x1(x) ## interesting stuff
         x = self.x2(x)
         
         return self.preds(x)

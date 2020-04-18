@@ -85,6 +85,7 @@ class rpn_subc(tf.keras.Model):
         h = self.cov4_2(h)
         h = self.cov4_3(h)
         h = self.pool4(h)
+        
         pool4_p = self.r_p_n_cov2(h)
         
         h = self.cov5_1(h)
@@ -103,6 +104,3 @@ class rpn_subc(tf.keras.Model):
         cls_bboxes = tf.reshape(cls_boxes, [-1,45,60,9,4])
         
         return cls_scores, cls_bboxes
-    
-    
-        
