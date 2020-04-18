@@ -8,6 +8,6 @@ I understand the Integrity in coding. Kudos to the original development.
 
 But its not always convenient to site / keep track from where I am collecting materials.
 
-Sorry! If I bitwisely upload any code developed by others. I hope this will not be the case. But still a caution. 
+Sorry! If I bitwisely upload any code developed by others. I hope this will not be the case. But still a caution.
 
 **I don't claim to be the author of the codes in this repository. I am a learner.**

@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Apr 17 17:22:38 2020
-
-@author: zahid
 """
 
 import os 
@@ -137,7 +135,7 @@ class ResNet(keras.Model):
 
         return out
 
-#%%
+#%% same old training network
         
         
 def main():
