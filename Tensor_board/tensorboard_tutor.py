@@ -28,6 +28,8 @@ assert version.parse(tf.__version__).release[0] >= 2, \
     "This notebook requires TensorFlow 2.0 or above."
 
 
+## run "rm -rf ./logs/" in terminal before running from python 
+
 #%%
 
 # Define the model.
