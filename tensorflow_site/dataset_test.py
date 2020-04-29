@@ -80,8 +80,43 @@ filter
 
 flat_map  %% self explanatory
 
+from_generator %% From iteration tool 
+
+from_tensor_slices %% prepare dataset for training
+
+from_tensors
+
+interleave
+
+list_files
+
+map %% very important
+
+options
+
+padded_batch
+
+prefetch
+
+range
+
+reduce
+
+repeat %% repeat the same dataset
+
+shard %% sampling 
+
+shuffle 
+
+skip
+
+take %% how many do you want to take
+
+zip  %% combine dataset
 
 ... from generator
+
+https://www.tensorflow.org/api_docs/python/tf/data/Dataset
 '''
 # can use apply method
 
@@ -125,3 +160,16 @@ def filt_fn(x):
 b = b.filter(filt_fn)
 
 print(list(b.as_numpy_iterator()))
+
+#
+
+import itertools
+
+def gen():
+    for i in itertools.count(1):
+        yield (i, [1]*i)
+
+dataset = tf.data.Dataset.from_generator(gen, (tf.int64, tf.int64),
+                                         (tf.TensorShape([]),tf.TensorShape([None])))
+
+print(list(dataset.take(3).as_numpy_iterator()))
