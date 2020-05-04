@@ -1,6 +1,6 @@
 
 #%% Same as basic model but functional implementation and breakdown implementation 
-
+# useful link https://rubikscode.net/2019/11/11/transfer-learning-with-tensorflow-2/
 #%% Import library
 
 import tensorflow as tf
