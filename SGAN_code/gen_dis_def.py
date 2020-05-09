@@ -68,7 +68,7 @@ class Discriminator(Model):
         x = self.fc2(x)
         x = self.bn2(x, training = training)
         x= tf.nn.relu(x)
-        x =  self.out(x)
+        x =  tf.nn.softmax(self.out(x))
         return x
         
         

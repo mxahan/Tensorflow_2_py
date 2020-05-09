@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-import  pdb
+
 import glob
 #%% Load Data and prepare data
 folds = [x[0] for x in os.walk('../../../Dataset/monkey10K/training/training')]
@@ -54,29 +54,25 @@ def generator_loss(disc_fake):
     # gen_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
     #     logits=disc_fake, labels=tf.ones([batch_size], dtype=tf.int32)))
     
-    # gen_loss = tf.reduce_mean(tf.math.log(1.-disc_fake[:,-1]+10**-10))
-    gen_loss = -tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
+    gen_loss = cross_entropy(tf.ones_like(disc_fake), disc_fake)
     return gen_loss
 
-def discriminator_loss(disc_fake, disc_real, real_label):
-    disc_L_sup = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(real_label, 11), logits = disc_real))
-    
-    disc_r_un = tf.reduce_mean(tf.math.log(1-disc_real[:,-1]+10**-10))
-    
-    disc_f_un = tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
-    # disc_loss_real = cross_entropy(tf.ones_like(disc_real), disc_real)
-    # disc_loss_fake = cross_entropy(tf.zeros_like(disc_fake), disc_fake)
-    # print(disc_L_sup, disc_f_un, disc_r_un)
+def discriminator_loss(disc_fake, disc_real):
+    # disc_loss_real = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=disc_real, labels=tf.ones([batch_size], dtype=tf.int32)))
+    # disc_loss_fake = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=disc_fake, labels=tf.zeros([batch_size], dtype=tf.int32)))
+    disc_loss_real = cross_entropy(tf.ones_like(disc_real), disc_real)
+    disc_loss_fake = cross_entropy(tf.zeros_like(disc_fake), disc_fake)
 
-    return disc_L_sup+0.01* disc_r_un+ 0.01*disc_f_un
+    return disc_loss_real + disc_loss_fake
 
 #%% Model training + Optimization
 optimizer_gen = tf.optimizers.Adam(learning_rate=lr_generator)#, beta_1=0.5, beta_2=0.999)
 optimizer_disc = tf.optimizers.Adam(learning_rate=lr_discriminator)#, beta_1=0.5, beta_2=0.999)
 
 
-def run_optimization(generator, discriminator, real_images, real_label):
+def run_optimization(generator, discriminator, real_images):
     
     # Rescale to [-1, 1], the input range of the discriminator
     real_images = real_images * 2. - 1. # output tanh
@@ -89,16 +85,14 @@ def run_optimization(generator, discriminator, real_images, real_label):
         fake_images = generator(noise, training=True)
         disc_fake = discriminator(fake_images, training=True)
         disc_real = discriminator(real_images, training=True)
-        disc_loss = discriminator_loss(disc_fake, disc_real, real_label)
-
-
+        disc_loss = discriminator_loss(disc_fake, disc_real)
             
     # Training Variables for each optimizer
     gradients_disc = g.gradient(disc_loss,  discriminator.trainable_variables)
     optimizer_disc.apply_gradients(zip(gradients_disc,  discriminator.trainable_variables))
     
     # Generate noise.
-    for i in range(1):
+    for i in range(2):
         noise = np.random.normal(-1., 1., size=[batch_size, noise_dim]).astype(np.float32)
         
         with tf.GradientTape() as g:
@@ -120,19 +114,20 @@ def run_optimization(generator, discriminator, real_images, real_label):
 def ret_GD(generator, discriminator):
 
     
-    for step, (batch_x, batch_y) in enumerate(train_data.take(training_steps + 1)):
+    for step, (batch_x, _) in enumerate(train_data.take(training_steps + 1)):
     
         if step == 0:
             # Generate noise.
             noise = np.random.normal(-1., 1., size=[batch_size, noise_dim]).astype(np.float32)
             gen_loss = generator_loss(discriminator(generator(noise)))
-            disc_loss = discriminator_loss(discriminator(generator(noise)),
-                                           discriminator(batch_x),batch_y)
+            disc_loss = discriminator_loss(discriminator(batch_x), discriminator(generator(noise)))
             print("initial: gen_loss: %f, disc_loss: %f" % (gen_loss, disc_loss))
+            
+        
             continue
         
         # Run the optimization.
-        args1 =  (generator, discriminator, batch_x, batch_y)
+        args1 =  (generator, discriminator, batch_x)
         gen_loss, disc_loss = run_optimization(*args1)
         
         if step % display_step == 0:
@@ -164,7 +159,7 @@ def ret_GD(generator, discriminator):
 from gen_dis_def import Generator, Discriminator
 #%% Load model
 generator  = Generator()
-discriminator =  Discriminator(10)
+discriminator =  Discriminator(1)
 #%% train model 
 mod_train = (generator, discriminator)
 with tf.device('/gpu:0'):
