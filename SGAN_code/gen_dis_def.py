@@ -71,7 +71,32 @@ class Discriminator(Model):
         x =  tf.nn.softmax(self.out(x))
         return x
         
+class weakDiscriminator(Model):
+    def __init__(self, classnumber):
+        super(weakDiscriminator, self).__init__()
+        self.conv1 = ConvBnRelu(ch = 32, kernel_size=3, strides= 4) # size, 128*128*32
+        self.conv2 = ConvBnRelu(ch = 8, kernel_size = 3 , strides = 2) # 64,64,16
+        self.conv3 = ConvBnRelu(ch = 4, kernel_size = 3 , strides = 2) # 64,64,16
+        self.flatten = layers.Flatten()
+
+        self.fc2 = layers.Dense(512)
+        self.bn2 = layers.BatchNormalization()
+        self.out = layers.Dense(classnumber+1)
         
+    
+        
+    def call(self, x, training = None):
+        x = tf.reshape(x, [-1, 256, 256, 3])
+        x = self.conv1(x, training = training)
+        x = self.conv2(x, training = training)   
+        x = self.conv3(x, training = training) 
+        x = self.flatten(x)
+        x = tf.nn.relu(x)
+        x = self.fc2(x)
+        x = self.bn2(x, training = training)
+        x= tf.nn.relu(x)
+        x =  tf.nn.softmax(self.out(x))
+        return x
 
 
 class Generator(Model):

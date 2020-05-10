@@ -45,7 +45,7 @@ xtr, xte, ytr, yte = train_test_split(x,y,test_size = 0.01, random_state=42)
 
 #%% Data prepare by tensorflow 2
 
-train_data = tf.data.Dataset.from_tensor_slices((xte, yte))
+train_data = tf.data.Dataset.from_tensor_slices((xtr, ytr))
 train_data = train_data.repeat().shuffle(buffer_size = 16, seed = 3).batch(batch_size).prefetch(1)
 
 #%% GAN Loss function
