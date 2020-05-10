@@ -18,7 +18,7 @@ list.sort(folds)
 x=[]
 y=[]
 
-re_size = (256,256)
+re_size = (64,64)
 
 for i,j in enumerate(folds[1:]):
     for imgf in glob.glob(j+'/*.jpg'):
@@ -33,7 +33,7 @@ y = np.array(y)
 #%% hyperparameters
 lr_generator = 0.0001
 lr_discriminator = 0.0001
-training_steps = 50000
+training_steps = 8000
 batch_size = 16
 display_step = 100
 
@@ -46,46 +46,81 @@ xtr, xte, ytr, yte = train_test_split(x,y,test_size = 0.01, random_state=13)
 #%% Data prepare by tensorflow 2
 
 train_data = tf.data.Dataset.from_tensor_slices((xtr, ytr))
-train_data = train_data.repeat().shuffle(buffer_size = 16, seed = 3).batch(batch_size).prefetch(1)
+train_data = train_data.repeat().shuffle(buffer_size = 16, seed = 5).batch(batch_size).prefetch(1)
 
 #%% GAN Loss function
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
 def generator_loss(disc_fake):
-    reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
-    reform = tf.concat([1-reform, reform], 1)
-    
-    gen_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
-    
+
+    ## Alternative 1
     # gen_loss = tf.reduce_mean(tf.math.log(1.-disc_fake[:,-1]+10**-10))
     #gen_loss = -tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
     # gen_loss = tf.reduce_mean((1-disc_fake[:,-1])**2)
-    return gen_loss
+    
+    ## Alternative 2
+    # reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
+    # reform = tf.concat([1-reform, reform], 1)
+    
+    # gen_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
+    
+    ## Alternative 3
+    # gen_loss = tf.reduce_mean((disc_fake[:,-1])**2)
+    
+    ## Alternative  4
+    gen_loss = tf.nn.softmax_cross_entropy_with_logits(
+        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_fake))
+    
+    return 0.5*gen_loss
+
+
 
 def discriminator_loss(disc_fake, disc_real, real_label):
     # Log likelihood
-    disc_L_sup = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(real_label, 11), logits = disc_real))
+    # disc_L_sup = tf.nn.softmax_cross_entropy_with_logits(
+    #     labels = tf.one_hot(real_label, 11), logits = disc_real)
+    disc_L_sup = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels = real_label, logits = disc_real)
     
+    ## Alternative 1
     # disc_r_un = tf.reduce_mean(tf.math.log(1-disc_real[:,-1]+10**-10))
     
     # disc_f_un = tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
     
-    reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
-    reform = tf.concat([1-reform, reform], 1)
     
-    disc_f_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=reform, labels=tf.ones([batch_size], dtype=tf.int32)))
+    ## Alternative 2
+    # reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
+    # reform = tf.concat([1-reform, reform], 1)
     
-    reform = tf.reshape(disc_real[:,-1], [batch_size, 1])
-    reform = tf.concat([1-reform, reform], 1)
-    disc_r_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-        logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
-    # Alternative Wassestein loss
+    # disc_f_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.ones([batch_size], dtype=tf.int32)))
+    
+    # reform = tf.reshape(disc_real[:,-1], [batch_size, 1])
+    # reform = tf.concat([1-reform, reform], 1)
+    # disc_r_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
+    
+    
+    ## Alternative 3    
+    #disc_r_un = tf.reduce_mean((disc_real[:,-1])**2)
+    
+    # disc_f_un = tf.reduce_mean((1-disc_fake[:,-1])**2)
+    
+     
+    
+    ## Alternative  4
+    disc_f_un = tf.nn.softmax_cross_entropy_with_logits(
+        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = disc_fake)
+    
+    disc_r_un = tf.nn.softmax_cross_entropy_with_logits(
+        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_real))
+   
+    
+    # print(disc_L_sup.numpy(), disc_r_un.numpy(), disc_f_un.numpy())
 
-    return disc_L_sup+0.1* disc_r_un+ 0.1*disc_f_un
+    return 5*disc_L_sup + 0.5*disc_r_un + 0.5*disc_f_un
 
 
 #%% Model training + Optimization
@@ -145,7 +180,8 @@ def ret_GD(generator, discriminator):
             gen_loss = generator_loss(discriminator(generator(noise)))
             disc_loss = discriminator_loss(discriminator(generator(noise)),
                                            discriminator(batch_x),batch_y)
-            print("initial: gen_loss: %f, disc_loss: %f" % (gen_loss, disc_loss))
+            print("initial: gen_loss: %f, disc_loss: %f" % (tf.reduce_mean(gen_loss), 
+                                                            tf.reduce_mean(disc_loss)))
             continue
         
         # Run the optimization.
@@ -153,9 +189,10 @@ def ret_GD(generator, discriminator):
         gen_loss, disc_loss = run_optimization(*args1)
         
         if step % display_step == 0:
-            print("step: %i, gen_loss: %f, disc_loss: %f" % (step, gen_loss, disc_loss))
+            print("step: %i, gen_loss: %f, disc_loss: %f" % (step, tf.reduce_mean(gen_loss), 
+                                                            tf.reduce_mean(disc_loss)))
             n = 6
-            canvas = np.empty((256 * n, 256 * n,3))
+            canvas = np.empty((64 * n, 64 * n,3))
             for i in range(n):
                 # Noise input.
                 z = np.random.normal(-1., 1., size=[n, noise_dim]).astype(np.float32)
@@ -167,27 +204,27 @@ def ret_GD(generator, discriminator):
                 # g = -1 * (g - 1)
                 for j in range(n):
                     # Draw the generated digits
-                    canvas[i * 256:(i + 1) * 256, j * 256:(j + 1) * 256,:] = g[j].reshape([256, 256,3])
+                    canvas[i * 64:(i + 1) * 64, j* 64:(j + 1)*64,:] = g[j].reshape([64, 64,3])
             
             plt.figure(figsize=(n, n))
             plt.imshow(canvas, origin="upper", cmap="gray")
             plt.show()
 
         
-    return generator, discriminator
+    # return generator, discriminator
 
 
 #%% Model class Definition
 from gen_dis_def import Generator, Discriminator, weakDiscriminator
 #%% Load model
 generator  = Generator()
-# discriminator =  Discriminator(10)
+discriminator =  Discriminator(10)
 wdiscream = weakDiscriminator(10)
 #%% train model 
 
-mod_train = (generator, wdiscream)
+mod_train = (generator, discriminator)
 with tf.device('/gpu:0'):
-    generator, discriminator =  ret_GD(*mod_train)
+    ret_GD(*mod_train)
 
 #%% Model save 
 
@@ -198,7 +235,7 @@ noise = np.random.normal(-1,1, [1,noise_dim])
 
 genimg = generator(noise)
 
-plt.imshow(np.reshape(genimg, [256,256, 3]))
+plt.imshow(genimg.numpy()[0])
 
 
 #%%
@@ -229,5 +266,5 @@ l1 = generator.layers[0]
 in1 = l1(noise)
 l2 = generator.layers[1]
 in2 = l2(tf.reshape(in1, [-1,4,4,512]))
-plt.imshow(np.reshape(in2[0,:,:,10].numpy(), [8,8]))
+plt.imshow(np.reshape(in2[0,:,:,9].numpy(), [8,8]))
 
