@@ -31,8 +31,8 @@ x = np.array(x)/255.
 y = np.array(y)
     
 #%% hyperparameters
-lr_generator = 0.0001
-lr_discriminator = 0.0001
+lr_generator = 0.0005
+lr_discriminator = 0.0005
 training_steps = 8000
 batch_size = 16
 display_step = 100
@@ -41,7 +41,10 @@ display_step = 100
 noise_dim = 500 # Noise data points
 
 #%% train test split
-xtr, xte, ytr, yte = train_test_split(x,y,test_size = 0.01, random_state=13)
+xtr, xte, ytr, yte = train_test_split(x,y,test_size = 0.01, random_state=10)
+
+## Add noise for better generator training
+xtr = xtr + np.random.normal(0,0.03, xtr.shape)
 
 #%% Data prepare by tensorflow 2
 
@@ -55,25 +58,29 @@ cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 def generator_loss(disc_fake):
 
     ## Alternative 1
-    # gen_loss = tf.reduce_mean(tf.math.log(1.-disc_fake[:,-1]+10**-10))
-    #gen_loss = -tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
-    # gen_loss = tf.reduce_mean((1-disc_fake[:,-1])**2)
+
+    # gen_loss = -tf.math.log(1-disc_fake[:,-1]+10**-10)
+
     
     ## Alternative 2
     # reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
     # reform = tf.concat([1-reform, reform], 1)
     
-    # gen_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
+    # gen_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32))
     
     ## Alternative 3
-    # gen_loss = tf.reduce_mean((disc_fake[:,-1])**2)
+    # gen_loss = (disc_fake[:,-1])**2
     
     ## Alternative  4
-    gen_loss = tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_fake))
+    # gen_loss = tf.nn.softmax_cross_entropy_with_logits(
+    #     labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_fake))
     
-    return 0.5*gen_loss
+    ## Alternative 5
+    
+    gen_loss  = disc_fake[:,-1]
+    
+    return gen_loss
 
 
 
@@ -85,42 +92,50 @@ def discriminator_loss(disc_fake, disc_real, real_label):
         labels = real_label, logits = disc_real)
     
     ## Alternative 1
-    # disc_r_un = tf.reduce_mean(tf.math.log(1-disc_real[:,-1]+10**-10))
+    # disc_r_un = -tf.math.log(1.0-disc_real[:,-1]+10**-10)
     
-    # disc_f_un = tf.reduce_mean(tf.math.log(disc_fake[:,-1]+10**-10))
+    # disc_f_un = -tf.math.log(disc_fake[:,-1]+10**-10)
     
     
-    ## Alternative 2
+    ## Alternative 2 ## not good for generator
     # reform = tf.reshape(disc_fake[:,-1], [batch_size, 1])
     # reform = tf.concat([1-reform, reform], 1)
     
-    # disc_f_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #     logits=reform, labels=tf.ones([batch_size], dtype=tf.int32)))
+    # disc_f_un = tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.ones([batch_size], dtype=tf.int32))
     
     # reform = tf.reshape(disc_real[:,-1], [batch_size, 1])
     # reform = tf.concat([1-reform, reform], 1)
-    # disc_r_un = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32)))
+    # disc_r_un = tf.nn.sparse_softmax_cross_entropy_with_logits(
+    #     logits=reform, labels=tf.zeros([batch_size], dtype=tf.int32))
     
     
     ## Alternative 3    
-    #disc_r_un = tf.reduce_mean((disc_real[:,-1])**2)
+    # disc_r_un = (disc_real[:,-1])**2
     
-    # disc_f_un = tf.reduce_mean((1-disc_fake[:,-1])**2)
+    # disc_f_un = (1-disc_fake[:,-1])**2
     
      
     
     ## Alternative  4
-    disc_f_un = tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = disc_fake)
+    # disc_f_un = tf.nn.softmax_cross_entropy_with_logits(
+    #     labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = disc_fake)
     
-    disc_r_un = tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_real))
-   
-    
-    # print(disc_L_sup.numpy(), disc_r_un.numpy(), disc_f_un.numpy())
+    # disc_r_un = tf.nn.softmax_cross_entropy_with_logits(
+    #     labels = tf.one_hot(tf.ones([batch_size], 'int32')*10, 11), logits = (1-disc_real))
 
-    return 5*disc_L_sup + 0.5*disc_r_un + 0.5*disc_f_un
+
+    ## Alternative 5 ()WGAN
+    disc_f_un = 1-disc_fake[:,-1]
+    
+    disc_r_un = disc_real[:,-1]
+    
+    print(tf.reduce_mean(disc_L_sup).numpy(), 
+           tf.reduce_mean(disc_r_un).numpy(), tf.reduce_mean(disc_f_un).numpy())
+          
+         
+
+    return disc_L_sup + disc_r_un + disc_f_un
 
 
 #%% Model training + Optimization
@@ -134,7 +149,7 @@ def run_optimization(generator, discriminator, real_images, real_label):
     real_images = real_images * 2. - 1. # output tanh
 
     # Generate noise.
-    noise = np.random.normal(-1., 1., size=[batch_size, noise_dim]).astype(np.float32)
+    noise = np.random.normal(0, 1., size=[batch_size, noise_dim]).astype(np.float32)
     
     with tf.GradientTape() as g:
             
@@ -149,9 +164,15 @@ def run_optimization(generator, discriminator, real_images, real_label):
     gradients_disc = g.gradient(disc_loss,  discriminator.trainable_variables)
     optimizer_disc.apply_gradients(zip(gradients_disc,  discriminator.trainable_variables))
     
+    # use the following only in case of WGAN else comment the for loop
+    for lays in discriminator.layers:
+        weights = lays.get_weights()
+        weights = [np.clip(weight, -0.1, 0.1) for weight in weights]
+        lays.set_weights(weights)
+    
     # Generate noise.
-    for i in range(2):
-        noise = np.random.normal(-1., 1., size=[batch_size, noise_dim]).astype(np.float32)
+    for _ in range(2):
+        noise = np.random.normal(0., 1., size=[batch_size, noise_dim]).astype(np.float32)
         
         with tf.GradientTape() as g:
                 
@@ -219,7 +240,7 @@ from gen_dis_def import Generator, Discriminator, weakDiscriminator
 #%% Load model
 generator  = Generator()
 discriminator =  Discriminator(10)
-wdiscream = weakDiscriminator(10)
+# wdiscream = weakDiscriminator(10)
 #%% train model 
 
 mod_train = (generator, discriminator)
@@ -231,7 +252,7 @@ with tf.device('/gpu:0'):
 
 #%% model test
 
-noise = np.random.normal(-1,1, [1,noise_dim])
+noise = np.random.normal(0,1, [1,noise_dim])
 
 genimg = generator(noise)
 
