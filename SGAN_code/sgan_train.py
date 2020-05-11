@@ -18,7 +18,7 @@ list.sort(folds)
 x=[]
 y=[]
 
-re_size = (64,64)
+re_size = (256,256)
 
 for i,j in enumerate(folds[1:]):
     for imgf in glob.glob(j+'/*.jpg'):
@@ -31,8 +31,8 @@ x = np.array(x)/255.
 y = np.array(y)
     
 #%% hyperparameters
-lr_generator = 0.0005
-lr_discriminator = 0.0005
+lr_generator = 0.0002
+lr_discriminator = 0.0002
 training_steps = 8000
 batch_size = 16
 display_step = 100
@@ -59,7 +59,7 @@ def generator_loss(disc_fake):
 
     ## Alternative 1
 
-    # gen_loss = -tf.math.log(1-disc_fake[:,-1]+10**-10)
+    gen_loss = -tf.math.log(1-disc_fake[:,-1]+10**-10)
 
     
     ## Alternative 2
@@ -78,7 +78,7 @@ def generator_loss(disc_fake):
     
     ## Alternative 5
     
-    gen_loss  = disc_fake[:,-1]
+    # gen_loss  = disc_fake[:,-1]
     
     return gen_loss
 
@@ -92,9 +92,9 @@ def discriminator_loss(disc_fake, disc_real, real_label):
         labels = real_label, logits = disc_real)
     
     ## Alternative 1
-    # disc_r_un = -tf.math.log(1.0-disc_real[:,-1]+10**-10)
+    disc_r_un = -tf.math.log(1.0-disc_real[:,-1]+10**-10)
     
-    # disc_f_un = -tf.math.log(disc_fake[:,-1]+10**-10)
+    disc_f_un = -tf.math.log(disc_fake[:,-1]+10**-10)
     
     
     ## Alternative 2 ## not good for generator
@@ -126,16 +126,16 @@ def discriminator_loss(disc_fake, disc_real, real_label):
 
 
     ## Alternative 5 ()WGAN
-    disc_f_un = 1-disc_fake[:,-1]
+    # disc_f_un = 1-disc_fake[:,-1]
     
-    disc_r_un = disc_real[:,-1]
+    # disc_r_un = disc_real[:,-1]
     
     print(tf.reduce_mean(disc_L_sup).numpy(), 
            tf.reduce_mean(disc_r_un).numpy(), tf.reduce_mean(disc_f_un).numpy())
           
          
 
-    return disc_L_sup + disc_r_un + disc_f_un
+    return 2*disc_L_sup + disc_r_un + disc_f_un
 
 
 #%% Model training + Optimization
@@ -164,11 +164,11 @@ def run_optimization(generator, discriminator, real_images, real_label):
     gradients_disc = g.gradient(disc_loss,  discriminator.trainable_variables)
     optimizer_disc.apply_gradients(zip(gradients_disc,  discriminator.trainable_variables))
     
-    # use the following only in case of WGAN else comment the for loop
-    for lays in discriminator.layers:
-        weights = lays.get_weights()
-        weights = [np.clip(weight, -0.1, 0.1) for weight in weights]
-        lays.set_weights(weights)
+    ### use the following only in case of WGAN else comment the for loop
+    # for lays in discriminator.layers:
+    #     weights = lays.get_weights()
+    #     weights = [np.clip(weight, -0.1, 0.1) for weight in weights]
+    #     lays.set_weights(weights)
     
     # Generate noise.
     for _ in range(2):
@@ -213,7 +213,7 @@ def ret_GD(generator, discriminator):
             print("step: %i, gen_loss: %f, disc_loss: %f" % (step, tf.reduce_mean(gen_loss), 
                                                             tf.reduce_mean(disc_loss)))
             n = 6
-            canvas = np.empty((64 * n, 64 * n,3))
+            canvas = np.empty((256 * n, 256 * n,3))
             for i in range(n):
                 # Noise input.
                 z = np.random.normal(-1., 1., size=[n, noise_dim]).astype(np.float32)
@@ -225,7 +225,7 @@ def ret_GD(generator, discriminator):
                 # g = -1 * (g - 1)
                 for j in range(n):
                     # Draw the generated digits
-                    canvas[i * 64:(i + 1) * 64, j* 64:(j + 1)*64,:] = g[j].reshape([64, 64,3])
+                    canvas[i * 256:(i + 1) * 256, j* 256:(j + 1)*256,:] = g[j].reshape([256, 256,3])
             
             plt.figure(figsize=(n, n))
             plt.imshow(canvas, origin="upper", cmap="gray")

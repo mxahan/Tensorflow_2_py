@@ -41,13 +41,13 @@ class ConvTrBnRelu(Model):
 class Discriminator(Model):
     def __init__(self, classnumber):
         super(Discriminator, self).__init__()
-        self.conv1 = ConvBnRelu(ch = 32, kernel_size=3, strides= 1) # size, 128*128*32
-        self.conv2 = ConvBnRelu(ch = 32, kernel_size = 3 , strides = 1) # 64,64,32
-        self.conv3 = ConvBnRelu(ch = 16, kernel_size = 3 , strides = 2) # 32,32,16
+        self.conv1 = ConvBnRelu(ch = 32, kernel_size=3, strides= 2) # size, 128*128*32
+        self.conv2 = ConvBnRelu(ch = 32, kernel_size = 3 , strides = 2) # 64,64,32
+        self.conv3 = ConvBnRelu(ch = 16, kernel_size = 5 , strides = 2) # 32,32,16
         self.conv4 = ConvBnRelu(ch = 8, kernel_size = 3 , strides = 2) # 16,16,8
         self.flatten = layers.Flatten()
-        # self.fc1 = layers.Dense(1024)
-        # self.bn1 = layers.BatchNormalization()
+        self.fc1 = layers.Dense(1024)
+        self.bn1 = layers.BatchNormalization()
         self.fc2 = layers.Dense(512)
         self.bn2 = layers.BatchNormalization()
         self.out = layers.Dense(classnumber+1)
@@ -55,15 +55,15 @@ class Discriminator(Model):
     
         
     def call(self, x, training = None):
-        x = tf.reshape(x, [-1, 64, 64, 3])
+        x = tf.reshape(x, [-1, 256, 256, 3])
         x = self.conv1(x, training = training)
         x = self.conv2(x, training = training)
         x = self.conv3(x, training = training)
         x = self.conv4(x, training = training)
         
         x = self.flatten(x)
-        # x = self.fc1(x)
-        # x = self.bn1(x, training = training)
+        x = self.fc1(x)
+        x = self.bn1(x, training = training)
         x = tf.nn.relu(x)
         x = self.fc2(x)
         x = self.bn2(x, training = training)
@@ -86,7 +86,7 @@ class weakDiscriminator(Model):
     
         
     def call(self, x, training = None):
-        x = tf.reshape(x, [-1, 64, 64, 3])
+        x = tf.reshape(x, [-1, 256, 256, 3]) ## change the resolution as you like
         x = self.conv1(x, training = training)
         x = self.conv2(x, training = training)   
         x = self.conv3(x, training = training) 
@@ -109,11 +109,11 @@ class Generator(Model):
         self.conv4 = ConvTrBnRelu(ch = 64, kernel_size = 3, strides =(2,2)) # size 64,64, 16
         # self.conv4 = layers.Conv2DTranspose(filters = 64, kernel_size = 5,
         #                                     padding= 'same', strides =(1,1)) # size 256, 256, 3
-        self.conv5 = ConvTrBnRelu(ch = 64, kernel_size = 5, strides =(1,1)) # size 128,128, 8
+        self.conv5 = ConvTrBnRelu(ch = 32, kernel_size = 5, strides =(2,2)) # size 128,128, 8
         # self.conv5 = layers.Conv2DTranspose(filters = 64, kernel_size = 5,
         #                                     padding= 'same', strides =(1,1)) # size 256, 256, 3
         self.conv6 = layers.Conv2DTranspose(filters = 3, kernel_size = 5,
-                                            padding= 'same', strides =(1,1), 
+                                            padding= 'same', strides =(2,2), 
                                             activation = 'tanh') # size 256, 256, 3
         
     def call(self, x, training = None):
