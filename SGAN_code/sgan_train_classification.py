@@ -18,7 +18,7 @@ list.sort(folds)
 x=[]
 y=[]
 
-re_size = (256,256)
+re_size = (128,128)
 
 for i,j in enumerate(folds[1:]):
     for imgf in glob.glob(j+'/*.jpg'):
@@ -39,7 +39,7 @@ y = np.array(y)
     
 #%% hyperparameters
 lr_gen = 0.0001
-lr_discriminator = 0.0001
+lr_discriminator = 0.001
 
 lr_generator = keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate=lr_gen,
@@ -98,12 +98,13 @@ def generator_loss(disc_fake):
 
 
 
-def discriminator_loss(disc_fake, disc_real, real_label):
+def discriminator_loss(disc_real, real_label):
     # Log likelihood
-    disc_L_sup = tf.nn.softmax_cross_entropy_with_logits(
-        labels = tf.one_hot(real_label, 11), logits = disc_real)
-    # disc_L_sup = tf.nn.sparse_softmax_cross_entropy_with_logits(
-    #     labels = real_label, logits = disc_real)
+    # disc_L_sup = tf.nn.softmax_cross_entropy_with_logits(
+        # labels = tf.one_hot(real_label, 11), logits = disc_real)
+    real_label = tf.cast(real_label, tf.int64)
+    disc_L_sup = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels = real_label, logits = disc_real)
     
     ## Alternative 1
     # disc_r_un = -tf.math.log(1.0-disc_real[:,-1]+10**-10)
@@ -171,7 +172,7 @@ def run_optimization(generator, discriminator, real_images, real_label):
             fake_images = generator(noise, training=True)
             disc_fake = discriminator(fake_images, training=True)
             disc_real = discriminator(real_images, training=True)
-            disc_loss = discriminator_loss(disc_fake, disc_real, real_label)
+            disc_loss = discriminator_loss(disc_real, real_label) 
         # Training Variables for each optimizer
         gradients_disc = g1.gradient(disc_loss,  discriminator.trainable_variables)
         optimizer_disc.apply_gradients(zip(gradients_disc,  discriminator.trainable_variables))  
@@ -213,8 +214,7 @@ def ret_GD(generator, discriminator):
             # Generate noise.
             noise = np.random.normal(0., 1., size=[batch_size, noise_dim]).astype(np.float32)
             gen_loss = generator_loss(discriminator(generator(noise)))
-            disc_loss = discriminator_loss(discriminator(generator(noise)),
-                                           discriminator(batch_x),batch_y)
+            disc_loss = discriminator_loss(discriminator(batch_x),batch_y)
             print("initial: gen_loss: %f, disc_loss: %f" % (tf.reduce_mean(gen_loss), 
                                                             tf.reduce_mean(disc_loss)))
             continue
@@ -260,9 +260,16 @@ from gen_dis_def import Generator, Discriminator, weakDiscriminator
 generator  = Generator()
 discriminator =  Discriminator(10)
 # wdiscream = weakDiscriminator(10)
+
+#%% of the shelf model
+#%%
+# xceptmode = tf.keras.applications.InceptionV3(
+#     include_top=False, weights='imagenet', input_shape=(128, 128, 3), classes=11)
+
+
 #%% train model 
 
-mod_train = (generator, discriminator)
+mod_train = (generator, model)
 with tf.device('/gpu:0'):
     ret_GD(*mod_train)
 
@@ -308,7 +315,23 @@ l2 = generator.layers[1]
 in2 = l2(tf.reshape(in1, [-1,4,4,512]))
 plt.imshow(np.reshape(in2[0,:,:,9].numpy(), [8,8]))
 
-#%%
-xceptmode = tf.keras.applications.Xception(
-    include_top=False, weights='imagenet', input_shape=(128, 128, 3), classes=11)
+#%% Transfer learning
+from keras.applications import InceptionV3
+from keras.models import Sequential
+from keras.layers import Dense, GlobalAveragePooling2D, Dropout
+
+# set  up the model
+model=Sequential()
+# add inception pretrained model, the wieghts 80Mb
+model.add(InceptionV3(include_top=False, 
+                      pooling='avg', 
+                      weights='imagenet'
+                     ))
+# use relu as activation function "vanishing gradiends" :)
+# model.add(Dense(2048, activation="relu"))  
+# # add drop out to avoid overfitting
+# model.add(Dropout(0.25))
+model.add(Dense(11, activation="softmax"))
+model.layers[0].trainable=False
+
 
