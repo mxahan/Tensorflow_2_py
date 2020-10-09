@@ -31,7 +31,7 @@ model = keras.Sequential([
   keras.layers.Flatten(),
   keras.layers.Dense(10)
 ])
-
+#%%
 # Train the digit classification model
 model.compile(optimizer='adam',
               loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -42,7 +42,29 @@ model.fit(
   epochs=1,
   validation_data=(test_images, test_labels)
 )
+#%%
+# Alternative
+optim = tf.keras.optimizers.Adam(lr = 0.001)
 
+train_data1 = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
+train_data1 = train_data1.repeat().shuffle(buffer_size=100, seed= 8).batch(16).prefetch(1)
+scce = tf.keras.losses.SparseCategoricalCrossentropy()
+
+for step, (batch_x, batch_y) in enumerate(train_data1.take(50), 1): 
+    with tf.GradientTape() as g:
+        pred =  model(batch_x, training = True) 
+        loss =  scce(batch_y, pred)  # change for mtl
+    trainable_vars =  model.trainable_variables
+    gradients =  g.gradient(loss, trainable_vars)
+    optim.apply_gradients(zip(gradients, trainable_vars))
+    
+    if step % 10 == 0:
+        pred = model(batch_x, training=True)
+        # pdb.set_trace()
+        loss = scce(batch_y, pred)
+        print("step: %i, loss: %f  " % (step, tf.reduce_mean(loss)))
+    
+    
 #%%  load lite step
 
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
