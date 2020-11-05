@@ -12,6 +12,10 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 import pathlib
+import os
+from tensorflow.keras import Model, layers
+
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 #%% 
 # Load MNIST dataset
@@ -42,15 +46,17 @@ model.fit(
   epochs=1,
   validation_data=(test_images, test_labels)
 )
-#%%
+#%% training setup
 # Alternative
+# https://www.tensorflow.org/guide/data
 optim = tf.keras.optimizers.Adam(lr = 0.001)
 
 train_data1 = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
 train_data1 = train_data1.repeat().shuffle(buffer_size=100, seed= 8).batch(16).prefetch(1)
 scce = tf.keras.losses.SparseCategoricalCrossentropy()
 
-for step, (batch_x, batch_y) in enumerate(train_data1.take(50), 1): 
+#%% Training
+for step, (batch_x, batch_y) in enumerate(train_data1.take(10000), 1): 
     with tf.GradientTape() as g:
         pred =  model(batch_x, training = True) 
         loss =  scce(batch_y, pred)  # change for mtl
