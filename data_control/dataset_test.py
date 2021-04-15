@@ -4,6 +4,8 @@
 Created on Tue Apr 28 01:13:02 2020
 
 @author: zahid
+
+someSource: https://www.tensorflow.org/guide/data
 """
 
 import tensorflow as tf
@@ -20,8 +22,9 @@ dataset =  dataset.map(lambda x: x*2-1)
 
 print(list(dataset.as_numpy_iterator()))
 
+#positon of repeat and the batch matters 
 
-dataset = dataset.shuffle(2).batch(2)
+dataset = dataset.shuffle(2).repeat(2).batch(4)
 
 for x in dataset:
     print(x)
@@ -172,4 +175,38 @@ def gen():
 dataset = tf.data.Dataset.from_generator(gen, (tf.int64, tf.int64),
                                          (tf.TensorShape([]),tf.TensorShape([None])))
 
-print(list(dataset.take(3).as_numpy_iterator()))
+print(list(dataset.take(4).as_numpy_iterator()))
+
+
+#%%  Data Augmentation
+
+# Source: https://www.tensorflow.org/tutorials/images/data_augmentation
+
+# run the colab version
+
+# understand the tuples property 
+
+# Keras layers intelligent usage!
+
+#next(iter(dataset))
+
+# different ways to augment
+    # use the keras layers
+    # use custom Data augmentation. (using lambda layers ) or subclass
+    # use tf.image 
+    # use tf.dataset (may be the best suited)
+    
+# Good use of Map Function: https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset/
+
+#%% 
+from tensorflow.keras.datasets import mnist
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_train, x_test = np.array(x_train, np.float32), np.array(x_test, np.float32)
+
+train_data = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+
+train_data = train_data.batch(16)
+
+for step,(x,y) in enumerate(train_data):
+    break
+# i[0] image data and i[1] is the label itself
